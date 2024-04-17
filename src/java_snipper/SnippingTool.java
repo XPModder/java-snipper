@@ -2,6 +2,7 @@ package java_snipper;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.plaf.ColorChooserUI;
 
 import java.awt.*;
 
@@ -15,14 +16,16 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 
+import static java.awt.Color.red;
+
 public class SnippingTool extends JFrame {
 
     private JPanel buttonPanel;
-    private MyButton newSnip, close, fullSnip, penBtn, markerBtn, copyBtn, saveBtn;
+    private MyButton newSnip, close, fullSnip, penBtn, markerBtn, copyBtn, saveBtn, colorBtn;
 
     private JScrollPane scrollPane;
 
-    private ImageIcon toolIcon, cancelIcon, fullscreenIcon, penIcon, markerIcon, copyIcon, saveIcon;
+    private ImageIcon toolIcon, cancelIcon, fullscreenIcon, penIcon, markerIcon, copyIcon, saveIcon, colorIcon;
     private ScreenCapture screenCapture;
 
     private Color selectionColor;
@@ -32,7 +35,23 @@ public class SnippingTool extends JFrame {
     private JLabel editorPane;
 
     private boolean penActive = false, markerActive = false;
-    private Color buttonBackgroundDefault;
+    private Color buttonBackgroundDefault, currentPenColor = red;
+
+    private int currentPenSize = 2, currentMarkerSize = 2;
+
+
+    private void updateColorButton(){
+        BufferedImage bufImg = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
+        Graphics g2d = bufImg.getGraphics();
+        g2d.setColor(currentPenColor);
+        g2d.fillRect(0, 0, 24, 24);
+        g2d.dispose();
+        colorIcon = new ImageIcon(bufImg);
+
+        colorBtn.setIcon(colorIcon);
+        repaint();
+    }
+
 
     public SnippingTool() {
 
@@ -40,10 +59,10 @@ public class SnippingTool extends JFrame {
         toolIcon = new ImageIcon(getClass().getResource("images/tool.png"));
         cancelIcon = new ImageIcon(getClass().getResource("images/close.png"));
         fullscreenIcon = new ImageIcon(getClass().getResource("images/fullscreen.png"));
-        penIcon = new ImageIcon(getClass().getResource("images/fullscreen.png"));
-        markerIcon = new ImageIcon(getClass().getResource("images/fullscreen.png"));
-        copyIcon = new ImageIcon(getClass().getResource("images/fullscreen.png"));
-        saveIcon = new ImageIcon(getClass().getResource("images/fullscreen.png"));
+        penIcon = new ImageIcon(getClass().getResource("images/pen.png"));
+        markerIcon = new ImageIcon(getClass().getResource("images/marker.png"));
+        copyIcon = new ImageIcon(getClass().getResource("images/copy.png"));
+        saveIcon = new ImageIcon(getClass().getResource("images/save.png"));
 
         selectionColor = Color.RED;
         screenCapture = new ScreenCapture(selectionColor);
@@ -78,6 +97,11 @@ public class SnippingTool extends JFrame {
         markerBtn = new MyButton("Marker", markerIcon, this::markerAction);
         markerBtn.setEnabled(false);
         buttonPanel.add(markerBtn);
+
+        colorBtn = new MyButton("Color", colorIcon, this::colorAction);
+        colorBtn.setEnabled(false);
+        updateColorButton();
+        buttonPanel.add(colorBtn);
 
         copyBtn = new MyButton("Copy", copyIcon, this::copyAction);
         copyBtn.setEnabled(false);
@@ -168,6 +192,7 @@ public class SnippingTool extends JFrame {
                 markerBtn.setEnabled(true);
                 copyBtn.setEnabled(true);
                 saveBtn.setEnabled(true);
+                colorBtn.setEnabled(true);
             }
         });
 
@@ -209,6 +234,7 @@ public class SnippingTool extends JFrame {
                 markerBtn.setEnabled(true);
                 copyBtn.setEnabled(true);
                 saveBtn.setEnabled(true);
+                colorBtn.setEnabled(true);
             }
         });
 
@@ -283,6 +309,8 @@ public class SnippingTool extends JFrame {
 
                 int scrollAmount = mouseWheelEvent.getUnitsToScroll();
 
+                scrollAmount *= -1;
+
                 int width = editorPane.getWidth();
                 int height = editorPane.getHeight();
 
@@ -292,12 +320,19 @@ public class SnippingTool extends JFrame {
                 float widthChange = widthPercent * scrollAmount;
                 float heightChange = heightPercent * scrollAmount;
 
-                Image image = ((ImageIcon)editorPane.getIcon()).getImage();
-                image = image.getScaledInstance(Math.round(width + widthChange), Math.round(height + heightChange), Image.SCALE_SMOOTH);
+                Image image = screenCapture.getImage();
 
-                editorPane.setIcon(new ImageIcon(image));
+                BufferedImage bufImg = new BufferedImage(Math.round(width + widthChange), Math.round(height + heightChange), BufferedImage.TYPE_INT_ARGB);
+                Graphics g2d = bufImg.getGraphics();
+                g2d.drawImage(image, 0, 0, Math.round(width + widthChange), Math.round(height + heightChange), null);
+                g2d.dispose();
+
+                editorPane.setIcon(new ImageIcon(bufImg));
                 repaint();
 
+            }
+            else{
+                scrollPane.dispatchEvent(mouseWheelEvent);
             }
 
         }
@@ -317,13 +352,15 @@ public class SnippingTool extends JFrame {
 
             BufferedImage image = toBufferedImage(((ImageIcon)editorPane.getIcon()).getImage());
             Graphics g2d = image.getGraphics();
-            g2d.setColor(Color.red);
+            g2d.setColor(currentPenColor);
 
             if(penActive) {
-                g2d.fillOval(x - 5, y - 5, 10, 10);
+                int actualSize = currentPenSize * 5;
+                g2d.fillOval(x - (actualSize / 2), y - (actualSize / 2), actualSize, actualSize);
             }
             if(markerActive){
-                g2d.fillRect(x - 5, y - 2, 10, 4);
+                int actualSize = currentMarkerSize * 5;
+                g2d.fillRect(x - (actualSize / 2), y - (actualSize / 2), actualSize, 4);
             }
 
             g2d.dispose();
@@ -441,6 +478,17 @@ public class SnippingTool extends JFrame {
         }
 
 
+    }
+
+
+    public void colorAction(ActionEvent event){
+        Color newColor = JColorChooser.showDialog(null, "Choose color", currentPenColor);
+        if(newColor != null){
+            currentPenColor = newColor;
+
+            updateColorButton();
+
+        }
     }
 
 }
