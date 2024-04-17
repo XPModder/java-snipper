@@ -10,7 +10,7 @@ import java.io.File;
 public class Main {
     public static void main(String[] args) throws Exception {
 
-        UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
+        //UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
 
         SnippingTool tool = new SnippingTool();
         tool.setSelectionColor(Color.CYAN);
