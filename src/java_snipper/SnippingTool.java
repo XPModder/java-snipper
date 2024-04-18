@@ -2,6 +2,8 @@ package java_snipper;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.plaf.ColorChooserUI;
 
 import java.awt.*;
@@ -44,6 +46,8 @@ public class SnippingTool extends JFrame {
     private List<BufferedImage> drawingImages = new ArrayList<>();
 
     private Point lastDragPoint;
+
+    private JDialog dialog = new JDialog(this);
 
 
     private void updateColorButton(){
@@ -123,8 +127,8 @@ public class SnippingTool extends JFrame {
         markerIcon = new ImageIcon(getClass().getResource("images/marker.png"));
         copyIcon = new ImageIcon(getClass().getResource("images/copy.png"));
         saveIcon = new ImageIcon(getClass().getResource("images/save.png"));
-        eraserIcon = new ImageIcon(getClass().getResource("images/close.png"));
-        resetScaleIcon = new ImageIcon(getClass().getResource("images/save.png"));
+        eraserIcon = new ImageIcon(getClass().getResource("images/eraser.png"));
+        resetScaleIcon = new ImageIcon(getClass().getResource("images/zoom.png"));
 
         selectionColor = Color.RED;
         screenCapture = new ScreenCapture(selectionColor);
@@ -154,10 +158,12 @@ public class SnippingTool extends JFrame {
 
         penBtn = new MyButton("Pen " + currentPenSize, penIcon, this::penAction);
         penBtn.setEnabled(false);
+        penBtn.addMouseListener(buttonMouseListener);
         buttonPanel.add(penBtn);
 
         markerBtn = new MyButton("Marker " + currentMarkerSize, markerIcon, this::markerAction);
         markerBtn.setEnabled(false);
+        markerBtn.addMouseListener(buttonMouseListener);
         buttonPanel.add(markerBtn);
 
         colorBtn = new MyButton("Color", colorIcon, this::colorAction);
@@ -404,7 +410,77 @@ public class SnippingTool extends JFrame {
     }
 
 
+    MouseListener buttonMouseListener = new MouseListener() {
+        @Override
+        public void mouseClicked(MouseEvent e) {
 
+            if(dialog.isVisible()){
+                dialog.setVisible(false);
+                dialog.dispose();
+            }
+
+            if(e.getButton() == MouseEvent.BUTTON3){
+                if(e.getComponent() instanceof MyButton button){
+                    if(button.isEnabled()) {
+                        String text = button.getText();
+
+                        if(text.contains("Pen")){
+
+                            Point location = new Point();
+                            location.x = (int)Math.round(button.getLocationOnScreen().getX() + (button.getWidth() / 2.0) - 100);
+                            location.y = (int)Math.round(button.getLocationOnScreen().getY() + button.getHeight());
+
+                            JLabel label = new JLabel();
+                            label.setText("Pen Size:");
+                            label.setBackground(buttonBackgroundDefault);
+                            JSlider slider = new JSlider();
+                            slider.setMinimum(1);
+                            slider.setMaximum(10);
+                            slider.setValue(currentPenSize);
+                            slider.addChangeListener(cl -> {
+                                currentPenSize = slider.getValue();
+                                penBtn.setText("Pen " + currentPenSize);
+                                repaint();
+                            });
+                            dialog.add(label);
+                            dialog.add(slider);
+                            dialog.setUndecorated(true);
+                            dialog.setSize(200, 50);
+                            dialog.setLocation(location);
+                            dialog.setBackground(activeButtonColor);
+                            dialog.setForeground(activeButtonColor);
+                            dialog.setVisible(true);
+
+                        }
+                        else if(text.contains("Marker")){
+
+                        }
+                    }
+                }
+
+            }
+        }
+
+        @Override
+        public void mousePressed(MouseEvent e) {
+
+        }
+
+        @Override
+        public void mouseReleased(MouseEvent e) {
+
+        }
+
+        @Override
+        public void mouseEntered(MouseEvent e) {
+
+        }
+
+        @Override
+        public void mouseExited(MouseEvent e) {
+
+        }
+    };
 
 
     MouseWheelListener mouseWheelListener = new MouseWheelListener() {
