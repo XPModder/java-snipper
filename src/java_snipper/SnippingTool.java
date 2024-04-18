@@ -15,17 +15,19 @@ import java.awt.image.ColorModel;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-import static java.awt.Color.red;
+import static java.awt.Color.*;
 
 public class SnippingTool extends JFrame {
 
     private JPanel buttonPanel;
-    private MyButton newSnip, close, fullSnip, penBtn, markerBtn, copyBtn, saveBtn, colorBtn;
+    private MyButton newSnip, close, fullSnip, penBtn, markerBtn, copyBtn, saveBtn, colorBtn, eraserBtn, resetScaleBtn;
 
     private JScrollPane scrollPane;
 
-    private ImageIcon toolIcon, cancelIcon, fullscreenIcon, penIcon, markerIcon, copyIcon, saveIcon, colorIcon;
+    private ImageIcon toolIcon, cancelIcon, fullscreenIcon, penIcon, markerIcon, copyIcon, saveIcon, colorIcon, eraserIcon, resetScaleIcon;
     private ScreenCapture screenCapture;
 
     private Color selectionColor;
@@ -34,10 +36,14 @@ public class SnippingTool extends JFrame {
 
     private JLabel editorPane;
 
-    private boolean penActive = false, markerActive = false;
-    private Color buttonBackgroundDefault, currentPenColor = red;
+    private boolean penActive = false, markerActive = false, eraserActive = false;
+    private Color buttonBackgroundDefault, currentPenColor = red, activeButtonColor = new Color(171, 197, 240);
 
-    private int currentPenSize = 2, currentMarkerSize = 2;
+    private int currentPenSize = 1, currentMarkerSize = 2, currentDrawingImage = 0;
+
+    private List<BufferedImage> drawingImages = new ArrayList<>();
+
+    private Point lastDragPoint;
 
 
     private void updateColorButton(){
@@ -53,6 +59,60 @@ public class SnippingTool extends JFrame {
     }
 
 
+    private void updateEditorPane(){
+        int width = editorPane.getIcon().getIconWidth();
+        int height = editorPane.getIcon().getIconHeight();
+
+        updateEditorPane(width, height);
+    }
+
+    private void updateEditorPane(int width, int height){
+
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB); //Make new blank image
+        Graphics g2d = image.getGraphics();
+        g2d.drawImage(screenCapture.getImage(), 0, 0, width, height, null); //draw the screenshot to the new image
+        for(BufferedImage img : drawingImages){
+            g2d.drawImage(img, 0, 0, width, height, null);  //draw all user additions (everything drawn with pen or marker) over the new image
+        }
+        g2d.dispose();  //now the image contains the screenshot and overlayed on top of it, all the things the user has drawn
+        editorPane.setIcon(new ImageIcon(image));   //display the new image and repaint everything to update the display
+        repaint();
+
+    }
+
+
+    private void disableAllTools(){
+        if(penActive){
+            penActive = false;
+            penBtn.setBackground(buttonBackgroundDefault);
+            editorPane.removeMouseMotionListener(mouseMotionListener);
+            editorPane.removeMouseListener(editorPaneMouseListener);
+        }
+        else if(markerActive){
+            markerActive = false;
+            markerBtn.setBackground(buttonBackgroundDefault);
+            editorPane.removeMouseMotionListener(mouseMotionListener);
+            editorPane.removeMouseListener(editorPaneMouseListener);
+        }
+        else if(eraserActive){
+            eraserActive = false;
+            eraserBtn.setBackground(buttonBackgroundDefault);
+            editorPane.removeMouseListener(editorPaneMouseListener);
+        }
+    }
+
+
+    private void enableButtons(){
+        penBtn.setEnabled(true);
+        markerBtn.setEnabled(true);
+        copyBtn.setEnabled(true);
+        saveBtn.setEnabled(true);
+        colorBtn.setEnabled(true);
+        eraserBtn.setEnabled(true);
+        resetScaleBtn.setEnabled(true);
+    }
+
+
     public SnippingTool() {
 
         // icon used on buttons;
@@ -63,6 +123,8 @@ public class SnippingTool extends JFrame {
         markerIcon = new ImageIcon(getClass().getResource("images/marker.png"));
         copyIcon = new ImageIcon(getClass().getResource("images/copy.png"));
         saveIcon = new ImageIcon(getClass().getResource("images/save.png"));
+        eraserIcon = new ImageIcon(getClass().getResource("images/close.png"));
+        resetScaleIcon = new ImageIcon(getClass().getResource("images/save.png"));
 
         selectionColor = Color.RED;
         screenCapture = new ScreenCapture(selectionColor);
@@ -90,11 +152,11 @@ public class SnippingTool extends JFrame {
         fullSnip = new MyButton("Fullscreen", fullscreenIcon, this::newFullAction);
         buttonPanel.add(fullSnip);
 
-        penBtn = new MyButton("Pen", penIcon, this::penAction);
+        penBtn = new MyButton("Pen " + currentPenSize, penIcon, this::penAction);
         penBtn.setEnabled(false);
         buttonPanel.add(penBtn);
 
-        markerBtn = new MyButton("Marker", markerIcon, this::markerAction);
+        markerBtn = new MyButton("Marker " + currentMarkerSize, markerIcon, this::markerAction);
         markerBtn.setEnabled(false);
         buttonPanel.add(markerBtn);
 
@@ -103,6 +165,20 @@ public class SnippingTool extends JFrame {
         updateColorButton();
         buttonPanel.add(colorBtn);
 
+        eraserBtn = new MyButton("Eraser", eraserIcon, e -> {
+            if(eraserActive){
+                disableAllTools();
+            }
+            else{
+                disableAllTools();
+                eraserActive = true;
+                eraserBtn.setBackground(activeButtonColor);
+                editorPane.addMouseListener(editorPaneMouseListener);
+            }
+        });
+        eraserBtn.setEnabled(false);
+        buttonPanel.add(eraserBtn);
+
         copyBtn = new MyButton("Copy", copyIcon, this::copyAction);
         copyBtn.setEnabled(false);
         buttonPanel.add(copyBtn);
@@ -110,6 +186,10 @@ public class SnippingTool extends JFrame {
         saveBtn = new MyButton("Save", saveIcon, this::saveAction);
         saveBtn.setEnabled(false);
         buttonPanel.add(saveBtn);
+
+        resetScaleBtn = new MyButton("Reset Zoom", resetScaleIcon, e -> updateEditorPane(screenCapture.getImage().getWidth(), screenCapture.getImage().getHeight()));
+        resetScaleBtn.setEnabled(false);
+        buttonPanel.add(resetScaleBtn);
 
         // close button;
         close = new MyButton("Close", cancelIcon, this::closeAction);
@@ -123,6 +203,7 @@ public class SnippingTool extends JFrame {
         editorPane = new JLabel();
         editorPane.setHorizontalAlignment(SwingConstants.CENTER);
         editorPane.addMouseWheelListener(mouseWheelListener);
+
 
         scrollPane = new JScrollPane(editorPane){
             @Override
@@ -152,6 +233,40 @@ public class SnippingTool extends JFrame {
                 super.windowClosing(e);
             }
         });
+
+
+        this.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent keyEvent) {
+
+            }
+
+            @Override
+            public void keyPressed(KeyEvent keyEvent) {
+                if(Keyboard.isKeyPressed(KeyEvent.VK_CONTROL) && Keyboard.isKeyPressed(KeyEvent.VK_Z)){
+                    if(!drawingImages.isEmpty()) {
+                        drawingImages.remove(drawingImages.size() - 1);
+
+                        int width = screenCapture.getImage().getWidth();
+                        int height = screenCapture.getImage().getHeight();
+                        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+                        Graphics g2d = image.getGraphics();
+                        g2d.drawImage(screenCapture.getImage(), 0, 0, width, height, null);
+                        for (BufferedImage img : drawingImages) {
+                            g2d.drawImage(img, 0, 0, width, height, null);
+                        }
+                        g2d.dispose();
+                        editorPane.setIcon(new ImageIcon(image));
+                    }
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent keyEvent) {
+
+            }
+        });
+
     }
 
     public void newSnipAction(ActionEvent e) {
@@ -188,11 +303,7 @@ public class SnippingTool extends JFrame {
                 this.setMinimumSize(new Dimension(width, height));
                 scrollPane.updateUI();
 
-                penBtn.setEnabled(true);
-                markerBtn.setEnabled(true);
-                copyBtn.setEnabled(true);
-                saveBtn.setEnabled(true);
-                colorBtn.setEnabled(true);
+                enableButtons();
             }
         });
 
@@ -230,11 +341,7 @@ public class SnippingTool extends JFrame {
                 this.setMinimumSize(new Dimension(width, height));
                 scrollPane.updateUI();
 
-                penBtn.setEnabled(true);
-                markerBtn.setEnabled(true);
-                copyBtn.setEnabled(true);
-                saveBtn.setEnabled(true);
-                colorBtn.setEnabled(true);
+                enableButtons();
             }
         });
 
@@ -297,6 +404,9 @@ public class SnippingTool extends JFrame {
     }
 
 
+
+
+
     MouseWheelListener mouseWheelListener = new MouseWheelListener() {
         @Override
         public void mouseWheelMoved(MouseWheelEvent mouseWheelEvent) {
@@ -320,15 +430,7 @@ public class SnippingTool extends JFrame {
                 float widthChange = widthPercent * scrollAmount;
                 float heightChange = heightPercent * scrollAmount;
 
-                Image image = screenCapture.getImage();
-
-                BufferedImage bufImg = new BufferedImage(Math.round(width + widthChange), Math.round(height + heightChange), BufferedImage.TYPE_INT_ARGB);
-                Graphics g2d = bufImg.getGraphics();
-                g2d.drawImage(image, 0, 0, Math.round(width + widthChange), Math.round(height + heightChange), null);
-                g2d.dispose();
-
-                editorPane.setIcon(new ImageIcon(bufImg));
-                repaint();
+                updateEditorPane(Math.round(width + widthChange), Math.round(height + heightChange));
 
             }
             else{
@@ -344,14 +446,65 @@ public class SnippingTool extends JFrame {
         @Override
         public void mouseDragged(MouseEvent mouseEvent) {
 
-            int widthOffset = (editorPane.getWidth() - screenCapture.getImage().getWidth()) / 2; //This is WAY off lmao
-            int heightOffset = (editorPane.getHeight() - screenCapture.getImage().getHeight()) / 2;
+            int widthOffset = (editorPane.getWidth() - editorPane.getIcon().getIconWidth()) / 2; //This is WAY off lmao
+            int heightOffset = (editorPane.getHeight() - editorPane.getIcon().getIconHeight()) / 2;
+            //widthOffset = (int)Math.round(editorPane.getLocationOnScreen().getX());
+            //heightOffset = (int)Math.round(editorPane.getLocationOnScreen().getY());
 
             int x = mouseEvent.getX() - widthOffset;
             int y = mouseEvent.getY() - heightOffset;
+            //x = (int)Math.round(editorPane.getMousePosition().getX());
+            //y = (int)Math.round(editorPane.getMousePosition().getY());
 
-            BufferedImage image = toBufferedImage(((ImageIcon)editorPane.getIcon()).getImage());
-            Graphics g2d = image.getGraphics();
+            if((currentDrawingImage == (drawingImages.size() - 1)) && lastDragPoint != null){ //we are still drawing on the same image as last time, so same overall drag event
+
+                int oldX = lastDragPoint.x;
+                int oldY = lastDragPoint.y;
+
+                int xDist = x - oldX;
+                int yDist = y - oldY;
+
+                double distance = Math.sqrt(((y - oldY)^2)+((x - oldX)^2));
+
+                int dist = (int)Math.round(distance);
+                if(dist != 0){
+                    xDist /= dist;
+                    yDist /= dist;
+                }
+                else{
+                    xDist = 0;
+                    yDist = 0;
+                }
+
+                int currX = oldX + xDist;
+                int currY = oldY + yDist;
+
+                Graphics g2d = drawingImages.get(currentDrawingImage).getGraphics();
+                g2d.setColor(currentPenColor);
+
+                if(penActive && (distance > currentPenSize * 2.5)){
+                    int actualSize = currentPenSize * 5;
+                    for(int i = 0; i < dist; i++){
+                        g2d.fillOval(currX - (actualSize / 2), currY - (actualSize / 2), actualSize, actualSize);
+                        currX += xDist;
+                        currY += yDist;
+                    }
+                }
+                else if(markerActive && (distance > currentMarkerSize * 2.5)){
+                    int actualSize = currentMarkerSize * 5;
+                    for(int i = 0; i < dist; i++){
+                        g2d.fillOval(currX - (actualSize / 2), currY - (actualSize / 2), actualSize, 4);
+                        currX += xDist;
+                        currY += yDist;
+                    }
+                }
+                g2d.dispose();
+
+            }
+
+            lastDragPoint = new Point(x, y);
+            currentDrawingImage = drawingImages.size() - 1;
+            Graphics g2d = drawingImages.get(drawingImages.size() - 1).getGraphics();
             g2d.setColor(currentPenColor);
 
             if(penActive) {
@@ -364,8 +517,8 @@ public class SnippingTool extends JFrame {
             }
 
             g2d.dispose();
-            editorPane.setIcon(new ImageIcon(image));
-            repaint();
+
+            updateEditorPane();
 
         }
 
@@ -376,26 +529,76 @@ public class SnippingTool extends JFrame {
     };
 
 
+    MouseListener editorPaneMouseListener = new MouseListener() {
+        @Override
+        public void mouseClicked(MouseEvent mouseEvent) {
+
+        }
+
+        @Override
+        public void mousePressed(MouseEvent mouseEvent) {
+
+            if(eraserActive){
+
+                int widthOffset = (editorPane.getWidth() - screenCapture.getImage().getWidth()) / 2; //This is WAY off lmao
+                int heightOffset = (editorPane.getHeight() - screenCapture.getImage().getHeight()) / 2;
+
+                int x = mouseEvent.getX() - widthOffset;
+                int y = mouseEvent.getY() - heightOffset;
+
+                List<BufferedImage> toDelete = new ArrayList<>();
+
+                for(BufferedImage img : drawingImages) {
+
+                    Color color = new Color(img.getRGB(x, y), true);
+                    if (color.getAlpha() > 0) {
+                        toDelete.add(img);
+                    }
+
+                }
+                drawingImages.removeAll(toDelete);
+
+                updateEditorPane();
+
+            }
+            else{
+                drawingImages.add( new BufferedImage(screenCapture.getImage().getWidth(), screenCapture.getImage().getHeight(), BufferedImage.TYPE_INT_ARGB));
+            }
+
+        }
+
+        @Override
+        public void mouseReleased(MouseEvent mouseEvent) {
+
+        }
+
+        @Override
+        public void mouseEntered(MouseEvent mouseEvent) {
+
+        }
+
+        @Override
+        public void mouseExited(MouseEvent mouseEvent) {
+
+        }
+    };
+
+
     public void penAction(ActionEvent e){
 
         if(!penActive) {
             if (screenCapture.isImageCaptured()) {
 
-                if(markerActive){
-                    markerActive = false;
-                    markerBtn.setBackground(buttonBackgroundDefault);
-                    editorPane.removeMouseMotionListener(mouseMotionListener);
-                }
+                disableAllTools();
 
                 penActive = true;
-                penBtn.setBackground(Color.green);
+                penBtn.setBackground(activeButtonColor);
                 editorPane.addMouseMotionListener(mouseMotionListener);
+                editorPane.addMouseListener(editorPaneMouseListener);
             }
         }
         else{
-            penActive = false;
-            penBtn.setBackground(buttonBackgroundDefault);
-            editorPane.removeMouseMotionListener(mouseMotionListener);
+            disableAllTools();
         }
 
     }
@@ -405,21 +608,16 @@ public class SnippingTool extends JFrame {
         if(!markerActive){
             if(screenCapture.isImageCaptured()) {
 
-                if(penActive){
-                    penActive = false;
-                    penBtn.setBackground(buttonBackgroundDefault);
-                    editorPane.removeMouseMotionListener(mouseMotionListener);
-                }
+                disableAllTools();
 
                 markerActive = true;
-                markerBtn.setBackground(Color.green);
+                markerBtn.setBackground(activeButtonColor);
                 editorPane.addMouseMotionListener(mouseMotionListener);
+                editorPane.addMouseListener(editorPaneMouseListener);
             }
         }
         else{
-            markerActive = false;
-            markerBtn.setBackground(buttonBackgroundDefault);
-            editorPane.removeMouseMotionListener(mouseMotionListener);
+            disableAllTools();
         }
 
 
@@ -461,11 +659,21 @@ public class SnippingTool extends JFrame {
 
         try {
 
+            int width = screenCapture.getImage().getWidth();
+            int height = screenCapture.getImage().getHeight();
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics g2d = image.getGraphics();
+            g2d.drawImage(screenCapture.getImage(), 0, 0, width, height, null);
+            for(BufferedImage img : drawingImages){
+                g2d.drawImage(img, 0, 0, width, height, null);
+            }
+            g2d.dispose();
+
             if(filename.endsWith("png")) {
-                ImageIO.write(toBufferedImage(((ImageIcon)editorPane.getIcon()).getImage()), "png", new File(filename));
+                ImageIO.write(image, "png", new File(filename));
             }
             else if(filename.endsWith("jpg")){
-                ImageIO.write(toBufferedImage(((ImageIcon)editorPane.getIcon()).getImage()), "jpg", new File(filename));
+                ImageIO.write(image, "jpg", new File(filename));
             }
 
         }
