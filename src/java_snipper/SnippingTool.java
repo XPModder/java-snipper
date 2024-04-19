@@ -2,23 +2,19 @@ package java_snipper;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.plaf.ColorChooserUI;
 
 import java.awt.*;
 
 import java.awt.datatransfer.Clipboard;
 import java.awt.event.*;
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.awt.image.ColorModel;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static java.awt.Color.*;
 
@@ -48,6 +44,9 @@ public class SnippingTool extends JFrame {
     private Point lastDragPoint;
 
     private JDialog dialog = new JDialog(this);
+    private JLabel DialogLabel = new JLabel();
+    private JSlider DialogSlider = new JSlider();
+    private JPanel DialogPanel = new JPanel();
 
 
     private void updateColorButton(){
@@ -118,6 +117,15 @@ public class SnippingTool extends JFrame {
 
 
     public SnippingTool() {
+
+
+        DialogSlider.setBackground(activeButtonColor);
+        DialogPanel.setBackground(activeButtonColor);
+        DialogPanel.add(DialogLabel);
+        DialogPanel.add(DialogSlider);
+        dialog.add(DialogPanel);
+        dialog.setUndecorated(true);
+        dialog.setSize(200, 50);
 
         // icon used on buttons;
         toolIcon = new ImageIcon(getClass().getResource("images/tool.png"));
@@ -320,7 +328,17 @@ public class SnippingTool extends JFrame {
 
     public void newFullAction(ActionEvent e) {
 
-        this.setState(JFrame.ICONIFIED);
+        try {
+
+            this.setExtendedState(JFrame.ICONIFIED);
+
+            TimeUnit.SECONDS.sleep(1);
+
+        }
+        catch (Exception ex){
+            ex.printStackTrace();
+            return;
+        }
 
         // create thread and capture image throw it;
         thread = new Thread(() -> {
@@ -423,6 +441,10 @@ public class SnippingTool extends JFrame {
                 if(e.getComponent() instanceof MyButton button){
                     if(button.isEnabled()) {
                         String text = button.getText();
+                        dialog.dispose();
+                        for(ChangeListener cl : DialogSlider.getChangeListeners()) {
+                            DialogSlider.removeChangeListener(cl);
+                        }
 
                         if(text.contains("Pen")){
 
@@ -430,29 +452,40 @@ public class SnippingTool extends JFrame {
                             location.x = (int)Math.round(button.getLocationOnScreen().getX() + (button.getWidth() / 2.0) - 100);
                             location.y = (int)Math.round(button.getLocationOnScreen().getY() + button.getHeight());
 
-                            JLabel label = new JLabel();
-                            label.setText("Pen Size:");
-                            label.setBackground(buttonBackgroundDefault);
-                            JSlider slider = new JSlider();
-                            slider.setMinimum(1);
-                            slider.setMaximum(10);
-                            slider.setValue(currentPenSize);
-                            slider.addChangeListener(cl -> {
-                                currentPenSize = slider.getValue();
+                            DialogLabel.setText("Pen Size:");
+
+                            DialogSlider.setMinimum(1);
+                            DialogSlider.setMaximum(10);
+                            DialogSlider.setValue(currentPenSize);
+                            DialogSlider.addChangeListener(cl -> {
+                                currentPenSize = DialogSlider.getValue();
                                 penBtn.setText("Pen " + currentPenSize);
                                 repaint();
                             });
-                            dialog.add(label);
-                            dialog.add(slider);
-                            dialog.setUndecorated(true);
-                            dialog.setSize(200, 50);
+
                             dialog.setLocation(location);
-                            dialog.setBackground(activeButtonColor);
-                            dialog.setForeground(activeButtonColor);
                             dialog.setVisible(true);
 
                         }
                         else if(text.contains("Marker")){
+
+                            Point location = new Point();
+                            location.x = (int)Math.round(button.getLocationOnScreen().getX() + (button.getWidth() / 2.0) - 100);
+                            location.y = (int)Math.round(button.getLocationOnScreen().getY() + button.getHeight());
+
+                            DialogLabel.setText("Marker Size:");
+
+                            DialogSlider.setMinimum(1);
+                            DialogSlider.setMaximum(10);
+                            DialogSlider.setValue(currentMarkerSize);
+                            DialogSlider.addChangeListener(cl -> {
+                                currentMarkerSize = DialogSlider.getValue();
+                                markerBtn.setText("Marker " + currentMarkerSize);
+                                repaint();
+                            });
+
+                            dialog.setLocation(location);
+                            dialog.setVisible(true);
 
                         }
                     }
@@ -522,15 +555,16 @@ public class SnippingTool extends JFrame {
         @Override
         public void mouseDragged(MouseEvent mouseEvent) {
 
-            int widthOffset = (editorPane.getWidth() - editorPane.getIcon().getIconWidth()) / 2; //This is WAY off lmao
-            int heightOffset = (editorPane.getHeight() - editorPane.getIcon().getIconHeight()) / 2;
-            //widthOffset = (int)Math.round(editorPane.getLocationOnScreen().getX());
-            //heightOffset = (int)Math.round(editorPane.getLocationOnScreen().getY());
+            int x = (int)Math.round(mouseEvent.getPoint().getX());
+            int y = (int)Math.round(mouseEvent.getPoint().getY());
 
-            int x = mouseEvent.getX() - widthOffset;
-            int y = mouseEvent.getY() - heightOffset;
-            //x = (int)Math.round(editorPane.getMousePosition().getX());
-            //y = (int)Math.round(editorPane.getMousePosition().getY());
+
+            double zoomX = (double) screenCapture.getImage().getWidth() / editorPane.getIcon().getIconWidth();
+            double zoomY = (double) screenCapture.getImage().getHeight() / editorPane.getIcon().getIconHeight();
+
+            x = (int) Math.round(x * zoomX);
+            y = (int) Math.round(y * zoomY);
+
 
             if((currentDrawingImage == (drawingImages.size() - 1)) && lastDragPoint != null){ //we are still drawing on the same image as last time, so same overall drag event
 
@@ -616,11 +650,15 @@ public class SnippingTool extends JFrame {
 
             if(eraserActive){
 
-                int widthOffset = (editorPane.getWidth() - screenCapture.getImage().getWidth()) / 2; //This is WAY off lmao
-                int heightOffset = (editorPane.getHeight() - screenCapture.getImage().getHeight()) / 2;
+                int x = (int)Math.round(mouseEvent.getPoint().getX());
+                int y = (int)Math.round(mouseEvent.getPoint().getY());
 
-                int x = mouseEvent.getX() - widthOffset;
-                int y = mouseEvent.getY() - heightOffset;
+
+                double zoomX = (double) screenCapture.getImage().getWidth() / editorPane.getIcon().getIconWidth();
+                double zoomY = (double) screenCapture.getImage().getHeight() / editorPane.getIcon().getIconHeight();
+
+                x = (int) Math.round(x * zoomX);
+                y = (int) Math.round(y * zoomY);
 
                 List<BufferedImage> toDelete = new ArrayList<>();
 
