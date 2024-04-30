@@ -14,6 +14,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static java.awt.Color.*;
@@ -23,7 +24,7 @@ public class SnippingTool extends JFrame {
     private JPanel buttonPanel;
     private MyButton newSnip, close, fullSnip, penBtn, markerBtn, copyBtn, saveBtn, colorBtn, eraserBtn, resetScaleBtn;
 
-    private JScrollPane scrollPane;
+    private final JScrollPane scrollPane;
 
     private ImageIcon toolIcon, cancelIcon, fullscreenIcon, penIcon, markerIcon, copyIcon, saveIcon, colorIcon, eraserIcon, resetScaleIcon;
     private ScreenCapture screenCapture;
@@ -35,11 +36,13 @@ public class SnippingTool extends JFrame {
     private JLabel editorPane;
 
     private boolean penActive = false, markerActive = false, eraserActive = false;
-    private Color buttonBackgroundDefault, currentPenColor = red, activeButtonColor = new Color(171, 197, 240);
+    private final Color buttonBackgroundDefault;
+    private Color currentPenColor = red;
+    private final Color activeButtonColor = new Color(171, 197, 240);
 
     private int currentPenSize = 1, currentMarkerSize = 2, currentDrawingImage = 0;
 
-    private List<BufferedImage> drawingImages = new ArrayList<>();
+    private final List<BufferedImage> drawingImages = new ArrayList<>();
 
     private Point lastDragPoint;
 
@@ -128,15 +131,15 @@ public class SnippingTool extends JFrame {
         dialog.setSize(200, 50);
 
         // icon used on buttons;
-        toolIcon = new ImageIcon(getClass().getResource("images/tool.png"));
-        cancelIcon = new ImageIcon(getClass().getResource("images/close.png"));
-        fullscreenIcon = new ImageIcon(getClass().getResource("images/fullscreen.png"));
-        penIcon = new ImageIcon(getClass().getResource("images/pen.png"));
-        markerIcon = new ImageIcon(getClass().getResource("images/marker.png"));
-        copyIcon = new ImageIcon(getClass().getResource("images/copy.png"));
-        saveIcon = new ImageIcon(getClass().getResource("images/save.png"));
-        eraserIcon = new ImageIcon(getClass().getResource("images/eraser.png"));
-        resetScaleIcon = new ImageIcon(getClass().getResource("images/zoom.png"));
+        toolIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("images/tool.png")));
+        cancelIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("images/close.png")));
+        fullscreenIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("images/fullscreen.png")));
+        penIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("images/pen.png")));
+        markerIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("images/marker.png")));
+        copyIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("images/copy.png")));
+        saveIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("images/save.png")));
+        eraserIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("images/eraser.png")));
+        resetScaleIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("images/zoom.png")));
 
         selectionColor = Color.RED;
         screenCapture = new ScreenCapture(selectionColor);
@@ -340,7 +343,8 @@ public class SnippingTool extends JFrame {
 
         }
         catch (Exception ex){
-            ex.printStackTrace();
+            System.out.println("Error during fullscreen capture!");
+            System.out.println(ex.getMessage());
             return;
         }
 
@@ -415,7 +419,9 @@ public class SnippingTool extends JFrame {
             try {
                 Thread.sleep(250);
             }
-            catch (InterruptedException e) {}
+            catch (InterruptedException e) {
+                System.out.println("Error holding thread!");
+            }
         }
     }
 
@@ -776,10 +782,9 @@ public class SnippingTool extends JFrame {
             if(file.getName().endsWith(".png")){
                 return true;
             }
-            else if(file.getName().endsWith(".jpg")){
-                return true;
+            else {
+                return file.getName().endsWith(".jpg");
             }
-            return false;
         };
         fDialog.setFilenameFilter(filter);
         fDialog.setVisible(true);

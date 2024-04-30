@@ -12,10 +12,9 @@ import java.awt.image.BufferedImage;
 
 public class ScreenCapture extends JFrame implements MouseListener, MouseMotionListener {
 
-    private Point startPt;
-    private Point endPt;
+    private final Point startPt;
+    private final Point endPt;
 
-    private Rectangle imageRect = null;
     private BufferedImage buff = null;
 
     private boolean flag = false;
@@ -57,7 +56,9 @@ public class ScreenCapture extends JFrame implements MouseListener, MouseMotionL
                 Thread.sleep(250);
             }
 
-            catch (InterruptedException e) {}
+            catch (InterruptedException e) {
+                System.out.println("Error occurred during screen capture!");
+            }
         }
     }
 
@@ -67,7 +68,7 @@ public class ScreenCapture extends JFrame implements MouseListener, MouseMotionL
             buff = new Robot().createScreenCapture(new Rectangle(screenSize));
         }
         catch (AWTException ex){
-            return;
+            System.out.println("Error occurred during screen capture!");
         }
     }
 
@@ -118,13 +119,15 @@ public class ScreenCapture extends JFrame implements MouseListener, MouseMotionL
         this.setVisible(false);
 
         // imageRect is selected region;
-        imageRect = new Rectangle(X, Y, WIDTH, HEIGHT);
+        Rectangle imageRect = new Rectangle(X, Y, WIDTH, HEIGHT);
         try {
             // capturing image of selected region;
             buff = new Robot().createScreenCapture(imageRect);
         }
 
-        catch (AWTException ex) {}
+        catch (AWTException ex) {
+            System.out.println("Error occurred during screen capture!");
+        }
 
         flag = true;
         this.dispose();
