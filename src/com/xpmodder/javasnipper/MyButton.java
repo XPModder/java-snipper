@@ -1,4 +1,4 @@
-package java_snipper;
+package com.xpmodder.javasnipper;
 
 import javax.swing.JButton;
 import javax.swing.ImageIcon;

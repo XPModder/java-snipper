@@ -1,4 +1,4 @@
-package java_snipper;
+package com.xpmodder.javasnipper;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;

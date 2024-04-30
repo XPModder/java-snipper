@@ -1,4 +1,4 @@
-package java_snipper;
+package com.xpmodder.javasnipper;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -285,17 +285,13 @@ public class SnippingTool extends JFrame {
 
     public void newSnipAction(ActionEvent e) {
 
-        Dimension size = this.getSize();
-        Point location = this.getLocation();
-        this.setSize(0, 0);
-        this.setLocation(-1000, -1000);
+        this.setVisible(false);
 
         // create thread and capture image throw it;
         thread = new Thread(() -> {
             screenCapture = new ScreenCapture(selectionColor);
             screenCapture.captureImage();
-            this.setSize(size);
-            this.setLocation(location);
+            this.setVisible(true);
             if(screenCapture.isImageCaptured()){
                 ImageIcon icon = new ImageIcon(screenCapture.getImage());
                 editorPane.setIcon(icon);
@@ -314,7 +310,15 @@ public class SnippingTool extends JFrame {
 
                 scrollPane.setSize(scrollPane.getPreferredSize());
 
-                this.setMinimumSize(new Dimension(width, height));
+                if(width < ((10 * 90) + (9 * 10))){
+                    this.setMinimumSize(new Dimension((10 * 90) + (9 * 10), height));
+                }
+                else{
+                    this.setMinimumSize(new Dimension(width, height));
+                }
+
+                drawingImages.clear();
+
                 scrollPane.updateUI();
 
                 enableButtons();
@@ -362,7 +366,15 @@ public class SnippingTool extends JFrame {
 
                 scrollPane.setSize(scrollPane.getPreferredSize());
 
-                this.setMinimumSize(new Dimension(width, height));
+                if(width < ((10 * 90) + (9 * 10))){
+                    this.setMinimumSize(new Dimension((10 * 90) + (9 * 10), height));
+                }
+                else{
+                    this.setMinimumSize(new Dimension(width, height));
+                }
+
+                drawingImages.clear();
+
                 scrollPane.updateUI();
 
                 enableButtons();
@@ -530,8 +542,8 @@ public class SnippingTool extends JFrame {
 
                 scrollAmount *= -1;
 
-                int width = editorPane.getWidth();
-                int height = editorPane.getHeight();
+                int width = editorPane.getIcon().getIconWidth();
+                int height = editorPane.getIcon().getIconHeight();
 
                 float widthPercent = screenCapture.getImage().getWidth() / 100.0f;
                 float heightPercent = screenCapture.getImage().getHeight() / 100.0f;
@@ -562,8 +574,14 @@ public class SnippingTool extends JFrame {
             double zoomX = (double) screenCapture.getImage().getWidth() / editorPane.getIcon().getIconWidth();
             double zoomY = (double) screenCapture.getImage().getHeight() / editorPane.getIcon().getIconHeight();
 
+            int offsetX = (editorPane.getWidth() - editorPane.getIcon().getIconWidth()) / 2; //TODO: Fix pen position in case of zoomed small image
+            int offsetY = (editorPane.getHeight() - editorPane.getIcon().getIconHeight()) / 2;
+
             x = (int) Math.round(x * zoomX);
             y = (int) Math.round(y * zoomY);
+
+            x -= offsetX;
+            y -= offsetY;
 
 
             if((currentDrawingImage == (drawingImages.size() - 1)) && lastDragPoint != null){ //we are still drawing on the same image as last time, so same overall drag event
